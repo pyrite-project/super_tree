@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:super_tree/src/widgets/super_tree_node_semantics.dart';
@@ -79,6 +80,8 @@ class _SuperTreeNodeWidgetState<T> extends State<SuperTreeNodeWidget<T>>
   late final Animation<double> _caretRotation;
   bool _isExpanded = false;
   String? _prevRenamingNodeId;
+  bool _selectionHandledOnPrimaryDown = false;
+  bool _expansionHandledOnPrimaryDown = false;
 
   @override
   void initState() {
@@ -166,25 +169,12 @@ class _SuperTreeNodeWidgetState<T> extends State<SuperTreeNodeWidget<T>>
     super.dispose();
   }
 
-  void _handleTap() {
-    final DateTime now = DateTime.now();
-    final bool isDoubleTap =
-        _lastTapTime != null &&
+  bool _isDoubleTapCandidate(DateTime now) {
+    return _lastTapTime != null &&
         now.difference(_lastTapTime!) < const Duration(milliseconds: 300);
+  }
 
-    if (isDoubleTap) {
-      _lastTapTime = null;
-      _handleDoubleTap();
-      return;
-    }
-
-    _lastTapTime = now;
-
-    if (widget.logic.namingStrategy == TreeNamingStrategy.click) {
-      _startRenaming();
-    } else if (widget.logic.expansionTrigger == ExpansionTrigger.tap) {
-      widget.controller.toggleNodeExpansion(widget.node);
-    }
+  void _handleSelection() {
     final bool isMultiSelect =
         widget.logic.selectionMode == SelectionMode.multiple;
     final bool isControlPressed =
@@ -198,6 +188,59 @@ class _SuperTreeNodeWidgetState<T> extends State<SuperTreeNodeWidget<T>>
       widget.controller.toggleSelection(widget.node.id);
     } else if (widget.logic.selectionMode != SelectionMode.none) {
       widget.controller.setSelectedNodeId(widget.node.id);
+    }
+  }
+
+  void _clearPrimaryDownFlags() {
+    _selectionHandledOnPrimaryDown = false;
+    _expansionHandledOnPrimaryDown = false;
+  }
+
+  void _handlePrimaryPointerDown(PointerDownEvent event) {
+    if ((event.buttons & kPrimaryButton) == 0) {
+      return;
+    }
+
+    if (_isDoubleTapCandidate(DateTime.now())) {
+      return;
+    }
+
+    if (widget.logic.selectionMode != SelectionMode.none) {
+      _selectionHandledOnPrimaryDown = true;
+      _handleSelection();
+    }
+
+    if (widget.logic.expansionTrigger == ExpansionTrigger.tap) {
+      _expansionHandledOnPrimaryDown = true;
+      widget.controller.toggleNodeExpansion(widget.node);
+    }
+  }
+
+  void _handleTap() {
+    final DateTime now = DateTime.now();
+    final bool isDoubleTap = _isDoubleTapCandidate(now);
+
+    if (isDoubleTap) {
+      _lastTapTime = null;
+      _clearPrimaryDownFlags();
+      _handleDoubleTap();
+      return;
+    }
+
+    final bool selectionHandledOnPrimaryDown = _selectionHandledOnPrimaryDown;
+    final bool expansionHandledOnPrimaryDown = _expansionHandledOnPrimaryDown;
+    _clearPrimaryDownFlags();
+    _lastTapTime = now;
+
+    if (widget.logic.namingStrategy == TreeNamingStrategy.click) {
+      _startRenaming();
+    } else if (widget.logic.expansionTrigger == ExpansionTrigger.tap &&
+        !expansionHandledOnPrimaryDown) {
+      widget.controller.toggleNodeExpansion(widget.node);
+    }
+
+    if (!selectionHandledOnPrimaryDown) {
+      _handleSelection();
     }
 
     widget.logic.onNodeTap?.call(widget.node.id);
@@ -236,6 +279,10 @@ class _SuperTreeNodeWidgetState<T> extends State<SuperTreeNodeWidget<T>>
 
   void _handleIconTap() {
     widget.controller.toggleNodeExpansion(widget.node);
+  }
+
+  void _handleTapCancel() {
+    _clearPrimaryDownFlags();
   }
 
   Widget _buildDefaultExpansionIcon() {
@@ -468,101 +515,111 @@ class _SuperTreeNodeWidgetState<T> extends State<SuperTreeNodeWidget<T>>
             child: child ?? const SizedBox.shrink(),
           );
         },
-        child: GestureDetector(
-          onSecondaryTapDown: _handleSecondaryTapDown,
-          onLongPressStart: _handleLongPressStart,
-          onTap: _handleTap,
-          behavior: HitTestBehavior.opaque,
-          child: SuperTreeNodeSemantics<T>(
-            node: widget.node,
-            canExpand: canExpand,
-            isSelected: isSelected,
-            labelProvider: widget.labelProvider,
-            child: ValueListenableBuilder<bool>(
-              valueListenable: _isHovering,
-              builder: (BuildContext context, bool isHovering, Widget? child) {
-                return Container(
-                  padding: EdgeInsets.only(
-                    left: widget.style.padding.horizontal / 2 + paddingLeft,
-                    right: widget.style.padding.horizontal / 2,
-                    top: widget.style.padding.vertical / 2,
-                    bottom: widget.style.padding.vertical / 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? widget.style.selectedColor
-                        : (isHovering ||
-                              widget.controller.contextMenuNodeId ==
-                                  widget.node.id)
-                        ? widget.style.hoverColor
-                        : widget.style.idleColor,
-                    border: Border.all(
-                      color: widget.controller.renamingNodeId == widget.node.id
-                          ? Theme.of(context).colorScheme.primary.withAlpha(204)
-                          : Colors.transparent,
-                      width: 2.0,
-                    ),
-                  ),
-                  child: child,
-                );
-              },
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  if (canExpand)
-                    MouseRegion(
-                      key: Key('node_caret_region_${widget.node.id}'),
-                      cursor: _resolveCursor(
-                        canExpand: canExpand,
-                        isSelected: isSelected,
-                        isHovering: false,
-                        isExpansionToggle: true,
+        child: Listener(
+          onPointerDown: _handlePrimaryPointerDown,
+          child: GestureDetector(
+            onSecondaryTapDown: _handleSecondaryTapDown,
+            onLongPressStart: _handleLongPressStart,
+            onTap: _handleTap,
+            onTapCancel: _handleTapCancel,
+            behavior: HitTestBehavior.opaque,
+            child: SuperTreeNodeSemantics<T>(
+              node: widget.node,
+              canExpand: canExpand,
+              isSelected: isSelected,
+              labelProvider: widget.labelProvider,
+              child: ValueListenableBuilder<bool>(
+                valueListenable: _isHovering,
+                builder:
+                    (BuildContext context, bool isHovering, Widget? child) {
+                      return Container(
+                        padding: EdgeInsets.only(
+                          left:
+                              widget.style.padding.horizontal / 2 + paddingLeft,
+                          right: widget.style.padding.horizontal / 2,
+                          top: widget.style.padding.vertical / 2,
+                          bottom: widget.style.padding.vertical / 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? widget.style.selectedColor
+                              : (isHovering ||
+                                    widget.controller.contextMenuNodeId ==
+                                        widget.node.id)
+                              ? widget.style.hoverColor
+                              : widget.style.idleColor,
+                          border: Border.all(
+                            color:
+                                widget.controller.renamingNodeId ==
+                                    widget.node.id
+                                ? Theme.of(
+                                    context,
+                                  ).colorScheme.primary.withAlpha(204)
+                                : Colors.transparent,
+                            width: 2.0,
+                          ),
+                        ),
+                        child: child,
+                      );
+                    },
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    if (canExpand)
+                      MouseRegion(
+                        key: Key('node_caret_region_${widget.node.id}'),
+                        cursor: _resolveCursor(
+                          canExpand: canExpand,
+                          isSelected: isSelected,
+                          isHovering: false,
+                          isExpansionToggle: true,
+                        ),
+                        child: GestureDetector(
+                          onTap: _handleIconTap,
+                          behavior: HitTestBehavior.opaque,
+                          child: KeyedSubtree(
+                            key: Key('expansion_caret_${widget.node.id}'),
+                            child: _buildExpansionSlot(context),
+                          ),
+                        ),
+                      )
+                    else
+                      SizedBox(width: widget.expansionSlotSize),
+
+                    // Prefix (e.g. File/Folder icon)
+                    widget.prefixBuilder(context, widget.node),
+
+                    const SizedBox(width: 8),
+
+                    // Content
+                    Expanded(
+                      child: widget.contentBuilder(
+                        context,
+                        widget.node,
+                        widget.controller.renamingNodeId == widget.node.id
+                            ? _buildRenameField(context)
+                            : null,
                       ),
-                      child: GestureDetector(
-                        onTap: _handleIconTap,
-                        behavior: HitTestBehavior.opaque,
-                        child: KeyedSubtree(
-                          key: Key('expansion_caret_${widget.node.id}'),
-                          child: _buildExpansionSlot(context),
+                    ),
+
+                    if (integrityIssue != null)
+                      Padding(
+                        padding: const EdgeInsets.only(left: 6),
+                        child: Tooltip(
+                          message: integrityIssue.message,
+                          child: Icon(
+                            Icons.error_outline,
+                            color: Theme.of(context).colorScheme.error,
+                            size: 16,
+                          ),
                         ),
                       ),
-                    )
-                  else
-                    SizedBox(width: widget.expansionSlotSize),
 
-                  // Prefix (e.g. File/Folder icon)
-                  widget.prefixBuilder(context, widget.node),
-
-                  const SizedBox(width: 8),
-
-                  // Content
-                  Expanded(
-                    child: widget.contentBuilder(
-                      context,
-                      widget.node,
-                      widget.controller.renamingNodeId == widget.node.id
-                          ? _buildRenameField(context)
-                          : null,
-                    ),
-                  ),
-
-                  if (integrityIssue != null)
-                    Padding(
-                      padding: const EdgeInsets.only(left: 6),
-                      child: Tooltip(
-                        message: integrityIssue.message,
-                        child: Icon(
-                          Icons.error_outline,
-                          color: Theme.of(context).colorScheme.error,
-                          size: 16,
-                        ),
-                      ),
-                    ),
-
-                  // Trailing Actions
-                  if (widget.trailingBuilder != null)
-                    widget.trailingBuilder!(context, widget.node),
-                ],
+                    // Trailing Actions
+                    if (widget.trailingBuilder != null)
+                      widget.trailingBuilder!(context, widget.node),
+                  ],
+                ),
               ),
             ),
           ),
