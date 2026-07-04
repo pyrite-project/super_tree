@@ -1,14 +1,14 @@
 import 'package:flutter/rendering.dart';
-import 'package:flutter/services.dart';
 import 'package:super_tree/src/configs/tree_rename_selection.dart';
 import 'package:super_tree/src/configs/tree_drag_and_drop_config.dart';
 import 'package:super_tree/src/models/tree_node.dart';
 
 /// Resolves the mouse cursor for a tree node based on interaction state.
-typedef TreeNodeCursorResolver<T> = MouseCursor Function(
-  TreeNode<T> node,
-  TreeNodeCursorState state,
-);
+typedef TreeNodeCursorResolver<T> =
+    MouseCursor Function(TreeNode<T> node, TreeNodeCursorState state);
+
+typedef TreePrimaryPointerDownIgnorer<T> =
+    bool Function(TreeNode<T> node, PointerDownEvent event);
 
 /// Snapshot of node interaction state used for cursor resolution.
 class TreeNodeCursorState {
@@ -148,6 +148,10 @@ class TreeViewConfig<T> {
   /// Resolves the mouse cursor for each node region.
   final TreeNodeCursorResolver<T>? nodeCursorResolver;
 
+  /// Allows embedded controls inside a row to opt out of row-level primary
+  /// pointer handling such as selection and tap-triggered expansion.
+  final TreePrimaryPointerDownIgnorer<T>? ignorePrimaryPointerDown;
+
   /// Drag-and-drop specific configuration.
   ///
   /// Only consulted when [enableDragAndDrop] is `true`. Controls drop
@@ -167,6 +171,7 @@ class TreeViewConfig<T> {
     this.onNodeTap,
     this.onNodeDoubleTap,
     this.nodeCursorResolver,
+    this.ignorePrimaryPointerDown,
     this.dragAndDrop = const TreeDragAndDropConfig(),
     this.debugMode = false,
   });
@@ -178,6 +183,7 @@ class TreeViewConfig<T> {
     void Function(String id)? onNodeTap,
     void Function(String id)? onNodeDoubleTap,
     TreeNodeCursorResolver<T>? nodeCursorResolver,
+    TreePrimaryPointerDownIgnorer<T>? ignorePrimaryPointerDown,
     TreeNamingStrategy? namingStrategy,
     TreeRenameSelectionStrategy<T>? renameSelectionStrategy,
     int Function(TreeNode<T> a, TreeNode<T> b)? defaultSortComparator,
@@ -196,6 +202,8 @@ class TreeViewConfig<T> {
       onNodeTap: onNodeTap ?? this.onNodeTap,
       onNodeDoubleTap: onNodeDoubleTap ?? this.onNodeDoubleTap,
       nodeCursorResolver: nodeCursorResolver ?? this.nodeCursorResolver,
+      ignorePrimaryPointerDown:
+          ignorePrimaryPointerDown ?? this.ignorePrimaryPointerDown,
       dragAndDrop: dragAndDrop ?? this.dragAndDrop,
       debugMode: debugMode ?? this.debugMode,
     );

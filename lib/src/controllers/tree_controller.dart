@@ -826,6 +826,11 @@ class TreeController<T> extends ChangeNotifier {
             : null;
       }
     } else {
+      final TreeNode<T>? node = _nodeIndex[id];
+      if (node != null) {
+        _removeSelectedAncestors(node);
+        _removeSelectedDescendants(node);
+      }
       _selectedNodeIds.add(id);
       _anchorNodeId = id;
     }
@@ -853,10 +858,38 @@ class TreeController<T> extends ChangeNotifier {
     for (int i = min; i <= max; i++) {
       _selectedNodeIds.add(_flatVisibleNodes[i].id);
     }
+    _pruneNestedSelectionsPreferAncestors();
     // We don't update anchorId here because we want to keep the original anchor for expanding ranges
-    _anchorNodeId = anchorId;
+    _anchorNodeId = _selectedNodeIds.contains(anchorId)
+        ? anchorId
+        : (_selectedNodeIds.isNotEmpty ? _selectedNodeIds.last : null);
 
     notifyListeners();
+  }
+
+  void _removeSelectedAncestors(TreeNode<T> node) {
+    TreeNode<T>? cursor = node.parent;
+    while (cursor != null) {
+      _selectedNodeIds.remove(cursor.id);
+      cursor = cursor.parent;
+    }
+  }
+
+  void _removeSelectedDescendants(TreeNode<T> node) {
+    for (final child in node.children) {
+      _selectedNodeIds.remove(child.id);
+      _removeSelectedDescendants(child);
+    }
+  }
+
+  void _pruneNestedSelectionsPreferAncestors() {
+    final selectedIds = Set<String>.from(_selectedNodeIds);
+    for (final node in _flatVisibleNodes) {
+      if (!selectedIds.contains(node.id)) continue;
+      if (_hasSelectedAncestor(node, selectedIds)) {
+        _selectedNodeIds.remove(node.id);
+      }
+    }
   }
 
   /// Selects the next visible node in the flat list.
@@ -988,6 +1021,9 @@ class TreeController<T> extends ChangeNotifier {
       }
     }
 
+    _rebuildFlatList();
+    _pruneNestedSelectionsPreferAncestors();
+
     if (rawAnchorNodeId != null && _selectedNodeIds.contains(rawAnchorNodeId)) {
       _anchorNodeId = rawAnchorNodeId;
     } else {
@@ -996,7 +1032,6 @@ class TreeController<T> extends ChangeNotifier {
           : null;
     }
 
-    _rebuildFlatList();
     notifyListeners();
   }
 

@@ -82,6 +82,7 @@ class _SuperTreeNodeWidgetState<T> extends State<SuperTreeNodeWidget<T>>
   String? _prevRenamingNodeId;
   bool _selectionHandledOnPrimaryDown = false;
   bool _expansionHandledOnPrimaryDown = false;
+  bool _primaryDownIgnored = false;
 
   @override
   void initState() {
@@ -194,10 +195,16 @@ class _SuperTreeNodeWidgetState<T> extends State<SuperTreeNodeWidget<T>>
   void _clearPrimaryDownFlags() {
     _selectionHandledOnPrimaryDown = false;
     _expansionHandledOnPrimaryDown = false;
+    _primaryDownIgnored = false;
   }
 
   void _handlePrimaryPointerDown(PointerDownEvent event) {
     if ((event.buttons & kPrimaryButton) == 0) {
+      return;
+    }
+    if (widget.logic.ignorePrimaryPointerDown?.call(widget.node, event) ??
+        false) {
+      _primaryDownIgnored = true;
       return;
     }
 
@@ -210,7 +217,8 @@ class _SuperTreeNodeWidgetState<T> extends State<SuperTreeNodeWidget<T>>
       _handleSelection();
     }
 
-    if (widget.logic.expansionTrigger == ExpansionTrigger.tap) {
+    if (widget.logic.expansionTrigger == ExpansionTrigger.tap &&
+        !_isMultiSelectionGesture()) {
       _expansionHandledOnPrimaryDown = true;
       widget.controller.toggleNodeExpansion(widget.node);
     }
@@ -229,13 +237,19 @@ class _SuperTreeNodeWidgetState<T> extends State<SuperTreeNodeWidget<T>>
 
     final bool selectionHandledOnPrimaryDown = _selectionHandledOnPrimaryDown;
     final bool expansionHandledOnPrimaryDown = _expansionHandledOnPrimaryDown;
+    final bool primaryDownIgnored = _primaryDownIgnored;
     _clearPrimaryDownFlags();
     _lastTapTime = now;
+
+    if (primaryDownIgnored) {
+      return;
+    }
 
     if (widget.logic.namingStrategy == TreeNamingStrategy.click) {
       _startRenaming();
     } else if (widget.logic.expansionTrigger == ExpansionTrigger.tap &&
-        !expansionHandledOnPrimaryDown) {
+        !expansionHandledOnPrimaryDown &&
+        !_isMultiSelectionGesture()) {
       widget.controller.toggleNodeExpansion(widget.node);
     }
 
@@ -253,6 +267,15 @@ class _SuperTreeNodeWidgetState<T> extends State<SuperTreeNodeWidget<T>>
       widget.controller.toggleNodeExpansion(widget.node);
     }
     widget.logic.onNodeDoubleTap?.call(widget.node.id);
+  }
+
+  bool _isMultiSelectionGesture() {
+    if (widget.logic.selectionMode != SelectionMode.multiple) {
+      return false;
+    }
+    return HardwareKeyboard.instance.isControlPressed ||
+        HardwareKeyboard.instance.isMetaPressed ||
+        HardwareKeyboard.instance.isShiftPressed;
   }
 
   void _startRenaming() {
@@ -278,6 +301,9 @@ class _SuperTreeNodeWidgetState<T> extends State<SuperTreeNodeWidget<T>>
   }
 
   void _handleIconTap() {
+    if (_expansionHandledOnPrimaryDown) {
+      return;
+    }
     widget.controller.toggleNodeExpansion(widget.node);
   }
 
