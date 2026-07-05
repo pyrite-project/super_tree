@@ -208,6 +208,10 @@ class _SuperTreeNodeWidgetState<T> extends State<SuperTreeNodeWidget<T>>
       return;
     }
 
+    if (event.kind == PointerDeviceKind.touch) {
+      return;
+    }
+
     if (_isDoubleTapCandidate(DateTime.now())) {
       return;
     }
