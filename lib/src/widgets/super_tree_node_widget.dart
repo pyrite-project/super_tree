@@ -84,6 +84,19 @@ class _SuperTreeNodeWidgetState<T> extends State<SuperTreeNodeWidget<T>>
   bool _expansionHandledOnPrimaryDown = false;
   bool _primaryDownIgnored = false;
 
+  void _updateRegisteredRowRect() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final renderObject = context.findRenderObject();
+      if (renderObject is! RenderBox || !renderObject.hasSize) return;
+      final topLeft = renderObject.localToGlobal(Offset.zero);
+      widget.controller.registerVisibleNodeRect(
+        widget.node.id,
+        topLeft & renderObject.size,
+      );
+    });
+  }
+
   @override
   void initState() {
     super.initState();
@@ -105,11 +118,16 @@ class _SuperTreeNodeWidgetState<T> extends State<SuperTreeNodeWidget<T>>
     if (_prevRenamingNodeId == widget.node.id) {
       _initializeRenameText();
     }
+    _updateRegisteredRowRect();
   }
 
   @override
   void didUpdateWidget(SuperTreeNodeWidget<T> oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.node.id != widget.node.id) {
+      widget.controller.unregisterVisibleNodeRect(oldWidget.node.id);
+    }
+    _updateRegisteredRowRect();
     final currentRenamingId = widget.controller.renamingNodeId;
 
     if (currentRenamingId == widget.node.id &&
@@ -162,6 +180,7 @@ class _SuperTreeNodeWidgetState<T> extends State<SuperTreeNodeWidget<T>>
 
   @override
   void dispose() {
+    widget.controller.unregisterVisibleNodeRect(widget.node.id);
     _renameController.dispose();
     _renameFocusNode.dispose();
     _keyboardListenerFocusNode.dispose();
@@ -455,12 +474,18 @@ class _SuperTreeNodeWidgetState<T> extends State<SuperTreeNodeWidget<T>>
     return selectedNodes;
   }
 
-  void _handleDrop(
+  Future<void> _handleDrop(
     TreeDragPayload<T> payload,
     TreeNode<T> targetNode,
     NodeDropPosition position,
-  ) {
+  ) async {
     final List<TreeNode<T>> draggedNodes = payload.nodes;
+    final handler = widget.logic.dragAndDrop.onMoveNodes;
+    if (handler != null) {
+      await handler(draggedNodes, targetNode, position);
+      return;
+    }
+
     final bool insertBefore = position == NodeDropPosition.above;
     final bool nestInside = position == NodeDropPosition.inside;
 
@@ -509,6 +534,7 @@ class _SuperTreeNodeWidgetState<T> extends State<SuperTreeNodeWidget<T>>
 
   @override
   Widget build(BuildContext context) {
+    _updateRegisteredRowRect();
     final double paddingLeft = widget.style.indentAmount * widget.node.depth;
     final bool canExpand =
         widget.node.hasChildren ||
@@ -520,7 +546,7 @@ class _SuperTreeNodeWidgetState<T> extends State<SuperTreeNodeWidget<T>>
         .getIntegrityIssueForNode(widget.node.id);
     final List<TreeNode<T>> dragNodes = _resolveDragNodes(isSelected);
 
-    return TreeDragAndDropWrapper<T>(
+    Widget row = TreeDragAndDropWrapper<T>(
       node: widget.node,
       enabled: widget.logic.enableDragAndDrop,
       dragNodes: dragNodes,
@@ -656,5 +682,12 @@ class _SuperTreeNodeWidgetState<T> extends State<SuperTreeNodeWidget<T>>
         ),
       ),
     );
+
+    final rowWrapperBuilder = widget.logic.rowWrapperBuilder;
+    if (rowWrapperBuilder != null) {
+      row = rowWrapperBuilder(context, widget.node, row);
+    }
+
+    return row;
   }
 }

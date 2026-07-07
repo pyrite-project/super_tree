@@ -1,4 +1,4 @@
-import 'package:flutter/rendering.dart';
+import 'package:flutter/widgets.dart';
 import 'package:super_tree/src/configs/tree_rename_selection.dart';
 import 'package:super_tree/src/configs/tree_drag_and_drop_config.dart';
 import 'package:super_tree/src/models/tree_node.dart';
@@ -9,6 +9,9 @@ typedef TreeNodeCursorResolver<T> =
 
 typedef TreePrimaryPointerDownIgnorer<T> =
     bool Function(TreeNode<T> node, PointerDownEvent event);
+
+typedef TreeNodeRowWrapperBuilder<T> =
+    Widget Function(BuildContext context, TreeNode<T> node, Widget child);
 
 /// Snapshot of node interaction state used for cursor resolution.
 class TreeNodeCursorState {
@@ -152,6 +155,10 @@ class TreeViewConfig<T> {
   /// pointer handling such as selection and tap-triggered expansion.
   final TreePrimaryPointerDownIgnorer<T>? ignorePrimaryPointerDown;
 
+  /// Allows consumers to wrap the complete rendered row, not just the content
+  /// column. Useful for row-wide context menus and drag metadata.
+  final TreeNodeRowWrapperBuilder<T>? rowWrapperBuilder;
+
   /// Drag-and-drop specific configuration.
   ///
   /// Only consulted when [enableDragAndDrop] is `true`. Controls drop
@@ -172,6 +179,7 @@ class TreeViewConfig<T> {
     this.onNodeDoubleTap,
     this.nodeCursorResolver,
     this.ignorePrimaryPointerDown,
+    this.rowWrapperBuilder,
     this.dragAndDrop = const TreeDragAndDropConfig(),
     this.debugMode = false,
   });
@@ -184,6 +192,7 @@ class TreeViewConfig<T> {
     void Function(String id)? onNodeDoubleTap,
     TreeNodeCursorResolver<T>? nodeCursorResolver,
     TreePrimaryPointerDownIgnorer<T>? ignorePrimaryPointerDown,
+    TreeNodeRowWrapperBuilder<T>? rowWrapperBuilder,
     TreeNamingStrategy? namingStrategy,
     TreeRenameSelectionStrategy<T>? renameSelectionStrategy,
     int Function(TreeNode<T> a, TreeNode<T> b)? defaultSortComparator,
@@ -204,6 +213,7 @@ class TreeViewConfig<T> {
       nodeCursorResolver: nodeCursorResolver ?? this.nodeCursorResolver,
       ignorePrimaryPointerDown:
           ignorePrimaryPointerDown ?? this.ignorePrimaryPointerDown,
+      rowWrapperBuilder: rowWrapperBuilder ?? this.rowWrapperBuilder,
       dragAndDrop: dragAndDrop ?? this.dragAndDrop,
       debugMode: debugMode ?? this.debugMode,
     );

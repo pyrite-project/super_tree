@@ -19,14 +19,10 @@ class TreeDragAndDropStyle {
   final Color indicatorColor;
 
   /// Creates a [TreeDragAndDropStyle] with sensible defaults.
-  const TreeDragAndDropStyle({
-    this.indicatorColor = Colors.blue,
-  });
+  const TreeDragAndDropStyle({this.indicatorColor = Colors.blue});
 
   /// Returns a copy of this style with the given fields replaced.
-  TreeDragAndDropStyle copyWith({
-    Color? indicatorColor,
-  }) {
+  TreeDragAndDropStyle copyWith({Color? indicatorColor}) {
     return TreeDragAndDropStyle(
       indicatorColor: indicatorColor ?? this.indicatorColor,
     );
@@ -41,6 +37,17 @@ class TreeDragAndDropStyle {
 /// [TreeViewConfig.enableDragAndDrop] — if that is `false` there is no need
 /// to provide this object.
 class TreeDragAndDropConfig<T> {
+  /// Optional async move handler for business-backed tree moves.
+  ///
+  /// When provided, drops call this handler instead of mutating the tree
+  /// directly. Return true after the backing model has been updated.
+  final Future<bool> Function(
+    List<TreeNode<T>> draggedNodes,
+    TreeNode<T> targetNode,
+    NodeDropPosition position,
+  )?
+  onMoveNodes;
+
   /// Callback to determine if a node can be dropped at a specific position.
   ///
   /// If null, all drops not forming cycles are accepted.
@@ -86,6 +93,7 @@ class TreeDragAndDropConfig<T> {
 
   /// Creates a [TreeDragAndDropConfig] with sensible defaults.
   const TreeDragAndDropConfig({
+    this.onMoveNodes,
     this.canAcceptDrop,
     this.canAcceptDropMany,
     this.dropEdgeBandFraction = 0.05,
@@ -98,6 +106,12 @@ class TreeDragAndDropConfig<T> {
 
   /// Returns a copy of this config with the given fields replaced.
   TreeDragAndDropConfig<T> copyWith({
+    Future<bool> Function(
+      List<TreeNode<T>> draggedNodes,
+      TreeNode<T> targetNode,
+      NodeDropPosition position,
+    )?
+    onMoveNodes,
     bool Function(
       TreeNode<T> draggedNode,
       TreeNode<T> targetNode,
@@ -118,6 +132,7 @@ class TreeDragAndDropConfig<T> {
     double? autoScrollMaxStepPx,
   }) {
     return TreeDragAndDropConfig<T>(
+      onMoveNodes: onMoveNodes ?? this.onMoveNodes,
       canAcceptDrop: canAcceptDrop ?? this.canAcceptDrop,
       canAcceptDropMany: canAcceptDropMany ?? this.canAcceptDropMany,
       dropEdgeBandFraction: dropEdgeBandFraction ?? this.dropEdgeBandFraction,

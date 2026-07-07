@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' show Offset, Rect;
 
 import 'package:flutter/foundation.dart';
 import 'package:super_tree/src/controllers/tree_events.dart';
@@ -95,6 +96,8 @@ class TreeController<T> extends ChangeNotifier {
 
   /// Index for O(1) node lookup by ID.
   final Map<String, TreeNode<T>> _nodeIndex = {};
+
+  final Map<String, Rect> _visibleNodeRects = <String, Rect>{};
 
   /// Last integrity issue emitted by validation guards.
   TreeIntegrityIssue? _lastIntegrityIssue;
@@ -285,6 +288,24 @@ class TreeController<T> extends ChangeNotifier {
   /// This list is pre-calculated and highly efficient for `ListView.builder`.
   List<TreeNode<T>> get flatVisibleNodes =>
       List.unmodifiable(_flatVisibleNodes);
+
+  void registerVisibleNodeRect(String nodeId, Rect rect) {
+    _visibleNodeRects[nodeId] = rect;
+  }
+
+  void unregisterVisibleNodeRect(String nodeId) {
+    _visibleNodeRects.remove(nodeId);
+  }
+
+  TreeNode<T>? findVisibleNodeAtGlobalPosition(Offset globalPosition) {
+    for (final node in _flatVisibleNodes) {
+      final rect = _visibleNodeRects[node.id];
+      if (rect != null && rect.contains(globalPosition)) {
+        return node;
+      }
+    }
+    return null;
+  }
 
   /// Whether a filter is currently active.
   bool get hasActiveFilter => _activeFilter != null;
