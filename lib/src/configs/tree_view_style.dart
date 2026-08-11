@@ -9,6 +9,9 @@ class TreeViewStyle {
   /// Amount of horizontal space added for each level of depth.
   final double indentAmount;
 
+  /// Horizontal gap between the prefix icon and the node content.
+  final double nodeGap;
+
   /// Text style for the node labels.
   final TextStyle? textStyle;
 
@@ -34,6 +37,7 @@ class TreeViewStyle {
   const TreeViewStyle({
     this.padding = const EdgeInsets.symmetric(vertical: 4.0, horizontal: 8.0),
     this.indentAmount = 24.0,
+    this.nodeGap = 8.0,
     this.textStyle,
     this.idleColor = Colors.transparent,
     this.hoverColor = const Color(0x1A000000), // Light grey transparent
@@ -47,6 +51,7 @@ class TreeViewStyle {
   TreeViewStyle copyWith({
     EdgeInsetsGeometry? padding,
     double? indentAmount,
+    double? nodeGap,
     TextStyle? textStyle,
     Color? idleColor,
     Color? hoverColor,
@@ -58,6 +63,7 @@ class TreeViewStyle {
     return TreeViewStyle(
       padding: padding ?? this.padding,
       indentAmount: indentAmount ?? this.indentAmount,
+      nodeGap: nodeGap ?? this.nodeGap,
       textStyle: textStyle ?? this.textStyle,
       idleColor: idleColor ?? this.idleColor,
       hoverColor: hoverColor ?? this.hoverColor,

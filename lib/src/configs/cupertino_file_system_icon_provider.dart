@@ -12,6 +12,9 @@ class CupertinoFileSystemIconProvider extends FileSystemIconProvider {
   final IconData defaultFileIcon;
   final Color defaultFileColor;
 
+  /// Size of the rendered file/folder icons.
+  final double iconSize;
+
   CupertinoFileSystemIconProvider({
     Map<String, IconData>? customExtensionMap,
     super.customExtensionColors,
@@ -20,6 +23,7 @@ class CupertinoFileSystemIconProvider extends FileSystemIconProvider {
     this.folderColor = CupertinoColors.systemBlue,
     this.defaultFileIcon = CupertinoIcons.doc,
     this.defaultFileColor = CupertinoColors.systemGrey,
+    this.iconSize = 18,
   }) : super(
          customExtensionMap: customExtensionMap == null 
              ? defaultCupertinoExtensionMap 
@@ -85,7 +89,7 @@ class CupertinoFileSystemIconProvider extends FileSystemIconProvider {
       return Icon(
         node.isExpanded ? folderExpandedIcon : folderIcon,
         color: folderColor,
-        size: 18,
+        size: iconSize,
       );
     }
 
@@ -103,14 +107,14 @@ class CupertinoFileSystemIconProvider extends FileSystemIconProvider {
       return Icon(
         fileExtensionMap[matchedExtension],
         color: fileExtensionColors[matchedExtension] ?? defaultFileColor,
-        size: 18,
+        size: iconSize,
       );
     }
 
     return Icon(
       defaultFileIcon,
       color: defaultFileColor,
-      size: 18,
+      size: iconSize,
     );
   }
 }

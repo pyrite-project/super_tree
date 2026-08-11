@@ -123,6 +123,9 @@ class MaterialFileSystemIconProvider extends FileSystemIconProvider {
   final IconData defaultFileIcon;
   final Color defaultFileColor;
 
+  /// Size of the rendered file/folder icons.
+  final double iconSize;
+
   MaterialFileSystemIconProvider({
     super.customExtensionMap,
     super.customExtensionColors,
@@ -131,6 +134,7 @@ class MaterialFileSystemIconProvider extends FileSystemIconProvider {
     this.folderColor = Colors.amber,
     this.defaultFileIcon = Icons.insert_drive_file,
     this.defaultFileColor = Colors.grey,
+    this.iconSize = 18,
   });
 
   @override
@@ -139,7 +143,7 @@ class MaterialFileSystemIconProvider extends FileSystemIconProvider {
       return Icon(
         node.isExpanded ? folderExpandedIcon : folderIcon,
         color: folderColor,
-        size: 18,
+        size: iconSize,
       );
     }
 
@@ -157,14 +161,14 @@ class MaterialFileSystemIconProvider extends FileSystemIconProvider {
       return Icon(
         fileExtensionMap[matchedExtension],
         color: fileExtensionColors[matchedExtension] ?? defaultFileColor,
-        size: 18,
+        size: iconSize,
       );
     }
 
     return Icon(
       defaultFileIcon,
       color: defaultFileColor,
-      size: 18,
+      size: iconSize,
     );
   }
 }

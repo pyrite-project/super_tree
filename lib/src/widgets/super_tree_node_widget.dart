@@ -645,7 +645,7 @@ class _SuperTreeNodeWidgetState<T> extends State<SuperTreeNodeWidget<T>>
                     // Prefix (e.g. File/Folder icon)
                     widget.prefixBuilder(context, widget.node),
 
-                    const SizedBox(width: 8),
+                    SizedBox(width: widget.style.nodeGap),
 
                     // Content
                     Expanded(
