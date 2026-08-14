@@ -98,6 +98,8 @@ class TreeController<T> extends ChangeNotifier {
   final Map<String, TreeNode<T>> _nodeIndex = {};
 
   final Map<String, Rect> _visibleNodeRects = <String, Rect>{};
+  final Map<String, Rect? Function()> _visibleNodeRectResolvers =
+      <String, Rect? Function()>{};
 
   /// Last integrity issue emitted by validation guards.
   TreeIntegrityIssue? _lastIntegrityIssue;
@@ -289,17 +291,71 @@ class TreeController<T> extends ChangeNotifier {
   List<TreeNode<T>> get flatVisibleNodes =>
       List.unmodifiable(_flatVisibleNodes);
 
+  /// Replaces the tree contents while retaining expansion and selection state
+  /// for nodes that still exist in the replacement.
+  Future<void> replaceRoots(List<TreeNode<T>> roots) async {
+    final state = toJson();
+    _roots.clear();
+    _nodeIndex.clear();
+    _integrityIssuesByNodeId.clear();
+    _lastIntegrityIssue = null;
+
+    for (final TreeNode<T> root in roots) {
+      if (!_canIndexNodes(
+        <TreeNode<T>>[root],
+        operation: 'replaceRoots',
+        notify: false,
+      )) {
+        continue;
+      }
+      _indexSubtree(root);
+      _roots.add(root);
+      _markInitialLoadedState(root);
+    }
+
+    final expandedNodeIds = _readStringList(state['expandedNodeIds']).toSet();
+    for (final TreeNode<T> root in _roots) {
+      root.isExpanded = expandedNodeIds.contains(root.id);
+    }
+    for (final TreeNode<T> root in _roots) {
+      await _loadExpandedChildren(root, expandedNodeIds);
+    }
+    fromJson(state);
+  }
+
+  Future<void> _loadExpandedChildren(
+    TreeNode<T> node,
+    Set<String> expandedNodeIds,
+  ) async {
+    if (!node.isExpanded) return;
+    await ensureNodeChildrenLoaded(node);
+    for (final TreeNode<T> child in node.children) {
+      child.isExpanded = expandedNodeIds.contains(child.id);
+      await _loadExpandedChildren(child, expandedNodeIds);
+    }
+  }
+
   void registerVisibleNodeRect(String nodeId, Rect rect) {
     _visibleNodeRects[nodeId] = rect;
   }
 
+  void registerVisibleNodeRectResolver(
+    String nodeId,
+    Rect? Function() resolver,
+  ) {
+    _visibleNodeRectResolvers[nodeId] = resolver;
+  }
+
   void unregisterVisibleNodeRect(String nodeId) {
     _visibleNodeRects.remove(nodeId);
+    _visibleNodeRectResolvers.remove(nodeId);
   }
 
   TreeNode<T>? findVisibleNodeAtGlobalPosition(Offset globalPosition) {
     for (final node in _flatVisibleNodes) {
-      final rect = _visibleNodeRects[node.id];
+      final rect =
+          _visibleNodeRectResolvers[node.id]?.call() ??
+          _visibleNodeRects[node.id];
       if (rect != null && rect.contains(globalPosition)) {
         return node;
       }

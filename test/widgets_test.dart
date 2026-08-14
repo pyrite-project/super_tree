@@ -1099,6 +1099,46 @@ void main() {
       expect(scrollController.offset, greaterThan(0));
     });
 
+    testWidgets('visible node hit testing follows scroll position', (
+      WidgetTester tester,
+    ) async {
+      final ScrollController scrollController = ScrollController();
+      final TreeController<String> controller = TreeController<String>(
+        roots: List<TreeNode<String>>.generate(
+          40,
+          (int index) =>
+              TreeNode<String>(id: 'node_$index', data: 'Node $index'),
+        ),
+      );
+
+      addTearDown(scrollController.dispose);
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        createTestableWidget(
+          SizedBox(
+            height: 220,
+            child: SuperTreeView<String>(
+              controller: controller,
+              scrollController: scrollController,
+              prefixBuilder: (_, _) => const SizedBox.shrink(),
+              contentBuilder: (_, TreeNode<String> node, _) => Text(node.data),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      scrollController.jumpTo(180);
+      await tester.pump();
+
+      final Offset nodeCenter = tester.getCenter(find.text('Node 10'));
+      expect(
+        controller.findVisibleNodeAtGlobalPosition(nodeCenter)?.id,
+        'node_10',
+      );
+    });
+
     testWidgets('Drag auto-scroll threshold tuning changes edge sensitivity', (
       WidgetTester tester,
     ) async {

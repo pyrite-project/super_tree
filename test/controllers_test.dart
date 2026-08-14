@@ -562,6 +562,57 @@ void main() {
     });
   });
 
+  group('TreeController Root Replacement', () {
+    test('retains expanded lazy-loaded branches', () async {
+      final TreeController<String> controller = TreeController<String>(
+        roots: <TreeNode<String>>[
+          TreeNode<String>(
+            id: 'root',
+            data: 'Root',
+            isExpanded: true,
+            children: <TreeNode<String>>[
+              TreeNode(
+                id: 'child',
+                data: 'Child',
+                isExpanded: true,
+                children: <TreeNode<String>>[
+                  TreeNode(id: 'grandchild', data: 'Grandchild'),
+                ],
+              ),
+            ],
+          ),
+        ],
+        loadChildren: (TreeNode<String> node) async {
+          return switch (node.id) {
+            'root' => <TreeNode<String>>[
+              TreeNode(
+                id: 'child',
+                data: 'Child',
+                canLoadChildren: true,
+              ),
+            ],
+            'child' => <TreeNode<String>>[
+              TreeNode(id: 'grandchild', data: 'Grandchild'),
+            ],
+            _ => <TreeNode<String>>[],
+          };
+        },
+      );
+
+      await controller.replaceRoots(<TreeNode<String>>[
+        TreeNode(id: 'root', data: 'Root', canLoadChildren: true),
+      ]);
+
+      expect(controller.findNodeById('root')?.isExpanded, isTrue);
+      expect(controller.findNodeById('child')?.isExpanded, isTrue);
+      expect(controller.findNodeById('grandchild'), isNotNull);
+      expect(
+        controller.flatVisibleNodes.map((TreeNode<String> node) => node.id),
+        <String>['root', 'child', 'grandchild'],
+      );
+    });
+  });
+
   group('TreeController Event Stream', () {
     test('addRoot emits TreeNodeAddedEvent with null parent', () async {
       final TreeController<String> controller = TreeController<String>();

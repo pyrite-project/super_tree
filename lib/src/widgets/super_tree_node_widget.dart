@@ -84,17 +84,17 @@ class _SuperTreeNodeWidgetState<T> extends State<SuperTreeNodeWidget<T>>
   bool _expansionHandledOnPrimaryDown = false;
   bool _primaryDownIgnored = false;
 
-  void _updateRegisteredRowRect() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      final renderObject = context.findRenderObject();
-      if (renderObject is! RenderBox || !renderObject.hasSize) return;
-      final topLeft = renderObject.localToGlobal(Offset.zero);
-      widget.controller.registerVisibleNodeRect(
-        widget.node.id,
-        topLeft & renderObject.size,
-      );
-    });
+  Rect? _visibleRowRect() {
+    final renderObject = context.findRenderObject();
+    if (renderObject is! RenderBox || !renderObject.hasSize) return null;
+    return renderObject.localToGlobal(Offset.zero) & renderObject.size;
+  }
+
+  void _registerVisibleRowRect() {
+    widget.controller.registerVisibleNodeRectResolver(
+      widget.node.id,
+      _visibleRowRect,
+    );
   }
 
   @override
@@ -118,16 +118,17 @@ class _SuperTreeNodeWidgetState<T> extends State<SuperTreeNodeWidget<T>>
     if (_prevRenamingNodeId == widget.node.id) {
       _initializeRenameText();
     }
-    _updateRegisteredRowRect();
+    _registerVisibleRowRect();
   }
 
   @override
   void didUpdateWidget(SuperTreeNodeWidget<T> oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.node.id != widget.node.id) {
-      widget.controller.unregisterVisibleNodeRect(oldWidget.node.id);
+    if (oldWidget.controller != widget.controller ||
+        oldWidget.node.id != widget.node.id) {
+      oldWidget.controller.unregisterVisibleNodeRect(oldWidget.node.id);
+      _registerVisibleRowRect();
     }
-    _updateRegisteredRowRect();
     final currentRenamingId = widget.controller.renamingNodeId;
 
     if (currentRenamingId == widget.node.id &&
@@ -534,7 +535,6 @@ class _SuperTreeNodeWidgetState<T> extends State<SuperTreeNodeWidget<T>>
 
   @override
   Widget build(BuildContext context) {
-    _updateRegisteredRowRect();
     final double paddingLeft = widget.style.indentAmount * widget.node.depth;
     final bool canExpand =
         widget.node.hasChildren ||
